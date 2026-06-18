@@ -51,3 +51,12 @@ datasets/
 
 # Temporary / testing files
 test_ckpt.npz
+
+# Helper / temporary python files
+temp/
+scratch/
+temp_*.py
+scratch_*.py
+helper_*.py
+*_helper.py
+scripts/
