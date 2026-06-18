@@ -205,7 +205,7 @@ class CVAGatedAttention(nn.Module):
     proj_dim: int = 128
 
     @nn.compact
-    def __call__(self, x):
+    def __call__(self, x, mask=None):
         # x: (..., N, D)
         original_dim = x.shape[-1]
 
@@ -216,7 +216,7 @@ class CVAGatedAttention(nn.Module):
         attn_out = nn.MultiHeadDotProductAttention(
             num_heads=self.num_heads,
             kernel_init=default_init(),
-        )(h, sow_weights=True)
+        )(h, mask=mask, sow_weights=True)
 
         # 3. Project back to original dimension
         attn_out = nn.Dense(original_dim, kernel_init=default_init())(attn_out)
@@ -233,6 +233,7 @@ class ActorVectorField(nn.Module):
     encoder: nn.Module = None
     use_cva: bool = False
     num_heads: int = 4
+    use_masked_attn: bool = False
 
     def setup(self) -> None:
         if self.use_cva:
@@ -259,7 +260,20 @@ class ActorVectorField(nn.Module):
             else:
                 inputs_attn = inputs
 
-            attn_out = self.cva(inputs_attn)
+            # Construct team mask based on agent count N
+            mask = None
+            if self.use_masked_attn:
+                N = inputs_attn.shape[-2]
+                if N == 4:
+                    # Team 0: 0,1,2 (predators). Team 1: 3 (prey).
+                    mask = jnp.array([
+                        [True, True, True, False],
+                        [True, True, True, False],
+                        [True, True, True, False],
+                        [False, False, False, True]
+                    ])
+
+            attn_out = self.cva(inputs_attn, mask=mask)
 
             if is_2d:
                 attn_out = jnp.squeeze(attn_out, axis=0)

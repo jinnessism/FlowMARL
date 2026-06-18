@@ -278,6 +278,7 @@ class MACFlowAgent(flax.struct.PyTreeNode):
             encoder=encoders.get('actor_bc_flow'),
             use_cva=config.get('use_cva', False),
             num_heads=config.get('num_heads', 4),
+            use_masked_attn=config.get('use_masked_attn', False),
         )
         actor_onestep_flow_def = ActorVectorField(
             hidden_dims=config['actor_hidden_dims'],
@@ -286,6 +287,7 @@ class MACFlowAgent(flax.struct.PyTreeNode):
             encoder=encoders.get('actor_onestep_flow'),
             use_cva=config.get('use_cva', False),
             num_heads=config.get('num_heads', 4),
+            use_masked_attn=config.get('use_masked_attn', False),
         )
 
         ex_obs_with_id = batch_concat_agent_id_to_obs(ex_observations)
@@ -345,6 +347,7 @@ def get_config():
             aw_temp=1.0,  # Temperature for advantage weighting
             aw_warmup_steps=100000,  # Number of steps to warmup critic before applying AW
             use_qg_flow=False,  # Whether to use Quantile-Gated Flow Matching
+            use_masked_attn=False,  # Whether to use masked team-conditioned attention
         )
     )
     return config

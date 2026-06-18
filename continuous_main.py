@@ -42,6 +42,7 @@ flags.DEFINE_bool   ('use_aw_flow',     False,   'Whether to use Advantage-Weigh
 flags.DEFINE_float  ('aw_temp',         1.0,     'Temperature for advantage weighting')
 flags.DEFINE_integer('aw_warmup_steps', 100000,  'Number of steps to warmup critic before applying AW')
 flags.DEFINE_bool   ('use_qg_flow',     False,   'Whether to use Quantile-Gated Flow Matching')
+flags.DEFINE_bool   ('use_masked_attn', False,   'Whether to use masked team-conditioned attention')
 # -----------------------------------------------------------------------------------------------
 
 def main(_):
@@ -85,6 +86,7 @@ def main(_):
     cfg.aw_temp = FLAGS.aw_temp
     cfg.aw_warmup_steps = FLAGS.aw_warmup_steps
     cfg.use_qg_flow = FLAGS.use_qg_flow
+    cfg.use_masked_attn = FLAGS.use_masked_attn
     agent = MACFlowAgent.create(
         seed=FLAGS.seed,
         ex_observations=ex_obs,
