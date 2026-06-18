@@ -3,7 +3,8 @@
 <div id="user-content-toc" style="margin-bottom: 50px">
   <ul align="center" style="list-style: none;">
     <summary>
-      <h1>Multi-agent Coordination via Flow Matching</h1>
+      <h1>FlowMARL</h1>
+      <h3>Multi-Agent Coordination via Flow Matching</h3>
       <br>
       <h2><a href="https://arxiv.org/abs/2511.05005">Paper</a></h2>
     </summary>
@@ -12,7 +13,7 @@
 </div>
 
 ## Overview
-This codebase provides an official implementation of MAC-Flow, which is an algorithm for offline MARL. 
+This codebase provides the official implementation of **FlowMARL**, a framework for offline Multi-Agent Reinforcement Learning (MARL) based on Multi-agent Coordination via Flow Matching. 
 
 ## Installation
 ```bash
