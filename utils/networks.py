@@ -212,11 +212,34 @@ class CVAGatedAttention(nn.Module):
         # 1. Project to a dimension divisible by num_heads
         h = nn.Dense(self.proj_dim, kernel_init=default_init())(x)
 
-        # 2. Self-Attention over N agents
-        attn_out = nn.MultiHeadDotProductAttention(
-            num_heads=self.num_heads,
-            kernel_init=default_init(),
-        )(h, mask=mask, sow_weights=True)
+        # 2. Self-Attention over N agents with Gradient-Blocked Team Attention
+        if mask is not None:
+            # mask represents intra-team connectivity (True for same team)
+            mask_intra = mask
+            # opposing team connectivity (True for opposing team)
+            mask_inter = jnp.logical_not(mask_intra)
+
+            # Intra-team Attention: gradient flow preserved
+            attn_intra = nn.MultiHeadDotProductAttention(
+                num_heads=self.num_heads,
+                kernel_init=default_init(),
+                name="attn_intra"
+            )(h, mask=mask_intra, sow_weights=True)
+
+            # Inter-team Attention: gradient flow blocked on Key and Value inputs
+            h_stop = jax.lax.stop_gradient(h)
+            attn_inter = nn.MultiHeadDotProductAttention(
+                num_heads=self.num_heads,
+                kernel_init=default_init(),
+                name="attn_inter"
+            )(h, inputs_kv=h_stop, mask=mask_inter, sow_weights=True)
+
+            attn_out = attn_intra + attn_inter
+        else:
+            attn_out = nn.MultiHeadDotProductAttention(
+                num_heads=self.num_heads,
+                kernel_init=default_init(),
+            )(h, mask=None, sow_weights=True)
 
         # 3. Project back to original dimension
         attn_out = nn.Dense(original_dim, kernel_init=default_init())(attn_out)
