@@ -122,33 +122,84 @@ def main(_):
     train_csv.close(); eval_csv.close()
 
 # === Helper ======================================================================================
+def heuristic_prey_action(prey_obs):
+    # The last 6 elements of observation are relative positions to the 3 predators
+    pred_rel_positions = [prey_obs[-6:-4], prey_obs[-4:-2], prey_obs[-2:]]
+    distances = [np.linalg.norm(r) for r in pred_rel_positions]
+    closest_idx = np.argmin(distances)
+    closest_rel_pos = pred_rel_positions[closest_idx]
+    
+    # Run away from the closest predator
+    run_dir = -closest_rel_pos
+    norm = np.linalg.norm(run_dir)
+    if norm > 1e-5:
+        action = run_dir / norm
+    else:
+        action = np.random.uniform(-1, 1, 2)
+    return action
+
 def _evaluate(agent, env, n_eps=10, seed=0):
-    episode_returns = []
-    for _ in range(n_eps):
-        observations, infos = env.reset()
-
-        done = False
-        episode_return = 0.0
-        while not done:
-            # For continuous control, pass actions as float arrays.
-            actions = agent.sample_actions(observations, jax.random.PRNGKey(seed))
-
-            # if FLAGS.scenario == 'simple_tag' or 'simple_world':
-            #     random_actions = np.random.uniform(-1, 1, 2)
-            #     actions['agent_3']
-
-            observations, rewards, terminal, truncation, infos = env.step(actions)
-            episode_return += np.mean(list(rewards.values()), dtype="float")
-
-            done = all(terminal.values()) or all(truncation.values())
-
-        episode_returns.append(episode_return)
+    is_competitive = FLAGS.scenario in ['simple_tag', 'simple_world']
+    
+    modes = ['default']
+    if is_competitive:
+        modes = ['default', 'random', 'heuristic']
+        
+    results = {m: [] for m in modes}
+    pred_results = {m: [] for m in modes}
+    
+    for mode in modes:
+        episode_returns = []
+        predator_returns = []
+        
+        for ep in range(n_eps):
+            observations, infos = env.reset()
+            done = False
+            episode_return = 0.0
+            predator_return = 0.0
+            
+            while not done:
+                # Sample actions from policy for all agents
+                actions = agent.sample_actions(observations, jax.random.PRNGKey(seed + ep))
+                
+                # Overwrite prey action based on evaluation mode
+                if is_competitive and 'agent_3' in actions:
+                    if mode == 'random':
+                        actions['agent_3'] = np.random.uniform(-1, 1, 2)
+                    elif mode == 'heuristic':
+                        actions['agent_3'] = heuristic_prey_action(observations['agent_3'])
+                
+                observations, rewards, terminal, truncation, infos = env.step(actions)
+                
+                episode_return += np.mean(list(rewards.values()), dtype="float")
+                if is_competitive:
+                    # Predator reward only (agent_0, agent_1, agent_2)
+                    pred_rew = np.mean([rewards['agent_0'], rewards['agent_1'], rewards['agent_2']], dtype="float")
+                    predator_return += pred_rew
+                
+                done = all(terminal.values()) or all(truncation.values())
+            
+            episode_returns.append(episode_return)
+            if is_competitive:
+                predator_returns.append(predator_return)
+                
+        results[mode] = episode_returns
+        if is_competitive:
+            pred_results[mode] = predator_returns
 
     logs = {
-        "evaluation/mean_episode_return": np.mean(episode_returns),
-        "evaluation/max_episode_return": np.max(episode_returns),
-        "evaluation/min_episode_return": np.min(episode_returns),
+        "evaluation/mean_episode_return": np.mean(results['default']),
+        "evaluation/max_episode_return": np.max(results['default']),
+        "evaluation/min_episode_return": np.min(results['default']),
     }
+    
+    if is_competitive:
+        logs.update({
+            "evaluation/predator_return_default": np.mean(pred_results['default']),
+            "evaluation/predator_return_random": np.mean(pred_results['random']),
+            "evaluation/predator_return_heuristic": np.mean(pred_results['heuristic']),
+        })
+        
     return logs
 
 # ===============================================================================================
